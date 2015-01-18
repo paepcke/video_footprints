@@ -60,7 +60,7 @@ class VideoFootPrintIndex(collections.Mapping):
         # view counts of a particular minute
         # in the video:
         self.videoViews = {}
-        if indexSavePath is not None:
+        if indexSavePath is not None and os.path.exists(indexSavePath):
             self.log("Using existing index file '%s'" % indexSavePath)
             self.load(indexSavePath)
     

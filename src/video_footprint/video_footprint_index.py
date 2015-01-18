@@ -55,7 +55,13 @@ class VideoFootPrintIndex(collections.Mapping):
             self.db = MySQLDB(host=self.dbHost, user=self.mySQLUser, passwd=self.mySQLPwd, db='Edx')
 
         self.activeFootprintDict = None
+        # Dict mapping video_id to array.
+        # each array element contains the 
+        # view counts of a particular minute
+        # in the video:
+        self.videoViews = {}
         if indexSavePath is not None:
+            self.log("Using existing index file '%s'" % indexSavePath)
             self.load(indexSavePath)
     
     # ----------------------------- Output Methods Other than Dict Behaviors -------------------
@@ -102,7 +108,12 @@ class VideoFootPrintIndex(collections.Mapping):
         :param courseDisplayName: course whose videos are to be profiled
         :type courseDisplayName: string
         '''
-        
+
+        if len(self.videoViews) != 0:
+            self.logErr('A video footprint index is already loaded; to make a new index into the same file, ' +\
+                        'remove the index file, and make a new VideoFootPrintIndex instance.\n' +\
+                        "The existing index file used was '%s'" % self.indexSavePath)
+            return      
         currVideoId = None
         # Current playhead position of current video
         currTime    = 0
@@ -114,11 +125,6 @@ class VideoFootPrintIndex(collections.Mapping):
         # Array in which each element is a counter
         # for views of one minute:
         currVideoTimeDict = None
-        # Dict mapping video_id to array.
-        # each array element contains the 
-        # view counts of a particular minute
-        # in the video:
-        self.videoViews = {}
         
         if self.viewEventsCSVFile is None:
             self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 

@@ -29,7 +29,7 @@ class VideoFootPrintIndex(collections.Mapping):
         self.viewEventsCSVFile = viewEventsCSVFile
         self.alignmentFile     = alignmentFile
         self.indexSavePath = indexSavePath
-        if viewEventsCSVFile is None or alignmentFile is None:
+        if (viewEventsCSVFile is None or alignmentFile is None) and indexSavePath is None:
             self.dbHost = dbHost
             self.dbName = 'Edx'
             self.mySQLUser = mySQLUser
@@ -49,6 +49,31 @@ class VideoFootPrintIndex(collections.Mapping):
             self.db = MySQLDB(host=self.dbHost, user=self.mySQLUser, passwd=self.mySQLPwd, db='Edx')
 
         self.activeFootprintDict = None
+        if indexSavePath is not None:
+            self.load(indexSavePath)
+    
+    # ----------------------------- Output Methods Other than Dict Behaviors -------------------
+
+    def videos(self):
+        '''
+        Return a list of videos that are covered in this index
+        
+        :return list of video identifiers
+        :rtype [str]
+        '''
+        return self.videoViews.keys()
+    
+    def videoHeatValues(self, videoId=None):
+        if videoId is not None:
+            csvValues = [str(x) + ',' + str[y] for x,y in self[videoId].items()]
+            return csvValues
+        if self.activeFootprintDict is None:
+            raise ValueError('Must either call setVideo(<videoId>), or provide parameter videoId in call to videoHeatValues().')
+        csvValues = ['%s,%s\n' % (str(x),str(y)) for x,y in self.activeFootprintDict.items()]
+                    
+        return csvValues
+
+    # ------------------- Main Implementation Methods ------------------------    
     
     def initPlayheadAlignments(self, alignmentFile=None):
         if alignmentFile is None:
@@ -285,7 +310,7 @@ class VideoFootPrintIndex(collections.Mapping):
         if playing:
             videoTimeDict = self.creditTime(videoTimeDict, currTime, stopTime)
         return videoTimeDict
-        
+    # ------------------------------------------ Utilities ---------------------------  
     def creditTime(self, videoTimeDict, startTime, stopTime):
         '''
         Given a dict of floatTime --> viewCounters, a start time,
@@ -335,7 +360,7 @@ class VideoFootPrintIndex(collections.Mapping):
     def __getitem__(self,key):
         try:
             (videoId,second) = key
-        except ValueError:
+        except TypeError:
             # Key is not a tuple; is activeFootprintDict
             # set to provide context? If so, interpret
             # the non-tuple key as a seconds-into-video specifier:
@@ -361,15 +386,6 @@ class VideoFootPrintIndex(collections.Mapping):
     def __delitem__(self, key):
         raise NotImplementedError("Video footprint index does not allow deletion.")
     
-    def videos(self):
-        '''
-        Return a list of videos that are covered in this index
-        
-        :return list of video identifiers
-        :rtype [str]
-        '''
-        return self.videoViews.keys()
-
     # --------------------------------- Logging ------------------
     
     def log(self, msg):

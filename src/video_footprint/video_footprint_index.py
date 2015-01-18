@@ -39,7 +39,7 @@ class VideoFootPrintIndex(collections.Mapping):
             if mySQLPwd is None:
                 # Try to get it from .ssh/mysql file of user
                 try:
-                    homeDir = os.path.expanduser('~' + mySQLUser)
+                    homeDir = os.path.expanduser('~' + self.mySQLUser)
                     pwdFile = os.path.join(homeDir,'.ssh/mysql')
                     with open(pwdFile, 'r') as fd:
                         self.mySQLPwd = fd.readline().strip()
@@ -115,9 +115,11 @@ class VideoFootPrintIndex(collections.Mapping):
         self.videoViews = {}
         
         if self.viewEventsCSVFile is None:
-            self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName, 
+            self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
                                                                   suffix='_video_action.csv',
                                                                   delete=False)
+            self.viewEventsCSVFile.close()
+            self.viewEventsCSVFile = self.viewEventsCSVFile.name
             self.log('About to start video activity query; will take about 2 minutes...')
             mysqlCmd = "SELECT time, event_type, video_id \
                           INTO OUTFILE '%s' \
@@ -127,25 +129,27 @@ class VideoFootPrintIndex(collections.Mapping):
                             OR event_type = 'pause_video' \
                             OR event_type = 'stop_video' \
                             OR event_type = 'seek_video' \
-                           AND course_display_name = 'Medicine/HRP258/Statistics_in_Medicine' \
-                         ORDER BY video_id, time;" % self.viewEventsCSVFile
+                           AND course_display_name = '%s' \
+                         ORDER BY video_id, time;" % (self.viewEventsCSVFile, courseDisplayName)
             
             self.db.query(mysqlCmd)
             self.log('Done video activity query...')
 
         # If no alignment file was provided, create it now:
         if self.alignmentFile is None:
-            self.alignmentFile = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName, 
+            self.alignmentFile = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
                                                                   suffix='_alignment.csv',
                                                                   delete=False)
+            self.alignmentFile = self.alignmentFile.name
+            self.alignmentFile.close()
             self.log('About to find start time offset for all videos...')
             mysqlCmd = "SELECT video_id, MIN(CAST(video_current_time AS SIGNED INTEGER)) \
                           INTO OUTFILE '%s' \
                           FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
                           FROM EdxTrackEvent PARTITION (pAY2013_Summer) \
-                          WHERE course_display_name = 'Medicine/HRP258/Statistics_in_Medicine' \
+                          WHERE course_display_name = '%s' \
                             AND video_id != '' \
-                          GROUP BY video_id;" % self.alignmentFile
+                          GROUP BY video_id;" % (self.alignmentFile, courseDisplayName)
         
         # Create a dict: video_id --> start-time offset
         alignmentDict = self.initPlayheadAlignments(self.alignmentFile)

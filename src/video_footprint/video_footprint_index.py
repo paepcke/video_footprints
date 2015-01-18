@@ -29,7 +29,13 @@ class VideoFootPrintIndex(collections.Mapping):
         self.viewEventsCSVFile = viewEventsCSVFile
         self.alignmentFile     = alignmentFile
         self.indexSavePath = indexSavePath
-        if (viewEventsCSVFile is None or alignmentFile is None) and indexSavePath is None:
+        # We'll need access to the MySQL db
+        # if we have to create the index or alignment
+        # file, and no previously built index file
+        # exists. If an index file exists, it has all
+        # needed info:
+        if (viewEventsCSVFile is None or alignmentFile is None) and \
+           (indexSavePath is None or not os.path.exists(indexSavePath) or os.path.getsize(indexSavePath) == 0):
             self.dbHost = dbHost
             self.dbName = 'Edx'
             self.mySQLUser = mySQLUser

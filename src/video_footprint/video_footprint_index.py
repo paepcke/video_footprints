@@ -152,8 +152,8 @@ class VideoFootPrintIndex(collections.Mapping):
             self.alignmentFile = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
                                                                   suffix='_alignment.csv',
                                                                   delete=False)
-            self.alignmentFile = self.alignmentFile.name
             self.alignmentFile.close()
+            self.alignmentFile = self.alignmentFile.name
             self.log('About to find start time offset for all videos...')
             mysqlCmd = "SELECT video_id, MIN(CAST(video_current_time AS SIGNED INTEGER)) \
                           INTO OUTFILE '%s' \

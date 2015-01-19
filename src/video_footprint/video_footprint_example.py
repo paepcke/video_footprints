@@ -12,11 +12,6 @@ import tempfile
 from video_footprint_index import VideoFootPrintIndex
 
 
-footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoUse.csv')
-footprintIndex.computeFootprints('Medicine/HRP258/Statistics_in_Medicine')
-sys.exit()
-                                     
-
 videoId = 'i4x-Medicine-HRP258-videoalpha-67b77215c10243f1a20d81350909084a'
 
 # ------------------- Simplest Case -----------------------
@@ -57,6 +52,16 @@ for csvLine in footprintIndex.videoHeatValues():
     csvFd.write(csvLine)
 csvFd.close()
 print("Heatmap is in '%s'" % csvFd.name)    
+
+sys.exit()
+
+# --------------------- When you have the use and alignment query result files  -------
+
+footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoUse.csv',
+                                     alignmentFile='/tmp/Medicine_HRP258_Statistics_in_MedicinehZJsok_alignment.csv',
+                                     indexSavePath='/tmp/medstatsIndex')
+footprintIndex.computeFootprints('Medicine/HRP258/Statistics_in_Medicine')
+sys.exit()
 
 # --------------------- When index file does not exist yet -------
 

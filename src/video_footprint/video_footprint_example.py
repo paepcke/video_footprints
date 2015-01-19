@@ -4,10 +4,18 @@ Created on Jan 18, 2015
 @author: paepcke
 '''
 
+import os
+import shutil
+import sys
 import tempfile
 
 from video_footprint_index import VideoFootPrintIndex
 
+
+footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoUse.csv')
+footprintIndex.computeFootprints('Medicine/HRP258/Statistics_in_Medicine')
+sys.exit()
+                                     
 
 videoId = 'i4x-Medicine-HRP258-videoalpha-67b77215c10243f1a20d81350909084a'
 
@@ -57,9 +65,15 @@ print("Heatmap is in '%s'" % csvFd.name)
 # in ~/.ssh/mysql. We'll ask to have the index file
 # dumped into /tmp/medstatsIndex:
 
+
+shutil.copyfile('/tmp/medstatsIndex', '/tmp/medstatsIndex.SAVED')
+os.remove('/tmp/medstatsIndex')
+
 footprintIndex = VideoFootPrintIndex(indexSavePath='/tmp/medstatsIndex')
 footprintIndex.computeFootprints('Medicine/HRP258/Statistics_in_Medicine')
 
 # And use it:
 print(footprintIndex[('i4x-Medicine-HRP258-videoalpha-67b77215c10243f1a20d81350909084a', 10)])
+
+shutil.copyfile('/tmp/medstatsIndex.SAVED', '/tmp/medstatsIndex')
 

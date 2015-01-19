@@ -132,7 +132,7 @@ class VideoFootPrintIndex(collections.Mapping):
                                                                   delete=False)
             self.viewEventsCSVFile.close()
             self.viewEventsCSVFile = self.viewEventsCSVFile.name
-            self.log('About to start video activity query; will take about 2 minutes...')
+            self.log('About to start video activity query...')
             mysqlCmd = "SELECT time, event_type, video_id \
                           INTO OUTFILE '%s' \
                         FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
@@ -154,7 +154,7 @@ class VideoFootPrintIndex(collections.Mapping):
                                                                   delete=False)
             self.alignmentFile.close()
             self.alignmentFile = self.alignmentFile.name
-            self.log('About to find start time offset for all videos...')
+            self.log('About to find start time offset for all videos (calibration)...')
             mysqlCmd = "SELECT video_id, MIN(CAST(video_current_time AS SIGNED INTEGER)) \
                           INTO OUTFILE '%s' \
                           FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
@@ -162,6 +162,8 @@ class VideoFootPrintIndex(collections.Mapping):
                           WHERE course_display_name = '%s' \
                             AND video_id != '' \
                           GROUP BY video_id;" % (self.alignmentFile, courseDisplayName)
+            self.db.query(mysqlCmd)
+            self.log("Done creating playhead time calibration")
         
         # Create a dict: video_id --> start-time offset
         alignmentDict = self.initPlayheadAlignments(self.alignmentFile)

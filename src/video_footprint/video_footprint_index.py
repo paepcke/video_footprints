@@ -35,7 +35,7 @@ class VideoFootPrintIndex(collections.Mapping):
         # exists. If an index file exists, it has all
         # needed info:
         if (viewEventsCSVFile is None or alignmentFile is None) and \
-           (indexSavePath is None or not os.path.exists(indexSavePath) or os.path.getsize(indexSavePath) == 0):
+           (indexSavePath is None or not os.path.exists(indexSavePath) or os.path.getsize(indexSavePath) < 10):
             self.dbHost = dbHost
             self.dbName = 'Edx'
             self.mySQLUser = mySQLUser

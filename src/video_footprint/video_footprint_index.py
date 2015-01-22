@@ -22,6 +22,7 @@ class VideoFootPrintIndex(collections.Mapping):
                  viewEventsCSVFile = None,
                  alignmentFile = None,
                  indexSavePath = None,
+                 specialLearnersList = None,
                  dbHost='localhost', 
                  mySQLUser=None, 
                  mySQLPwd=None 
@@ -29,6 +30,8 @@ class VideoFootPrintIndex(collections.Mapping):
         self.viewEventsCSVFile = viewEventsCSVFile
         self.alignmentFile     = alignmentFile
         self.indexSavePath = indexSavePath
+        self.specialLearnersList   = specialLearnersList
+        self.currAnonScreenName    = None
         # We'll need access to the MySQL db
         # if we have to create the index or alignment
         # file, and no previously built index file
@@ -60,6 +63,10 @@ class VideoFootPrintIndex(collections.Mapping):
         # view counts of a particular minute
         # in the video:
         self.videoViews = {}
+        # Similar dict, but where only actions by selected
+        # learners will be counted (the ones from the learnerList):
+        self.videoViewsSpecialLearners = {}
+        
         if indexSavePath is not None and os.path.exists(indexSavePath):
             self.log("Using existing index file '%s'" % indexSavePath)
             self.load(indexSavePath)
@@ -77,14 +84,14 @@ class VideoFootPrintIndex(collections.Mapping):
     
     def videoHeatValues(self, videoId=None):
         if videoId is not None:
-            csvValues = [str(x) + ',' + str[y] for x,y in self[videoId].items()]
+            csvValues = [str(x) + ',' + str(y) + '\n' for x,y in self[videoId].items()]
             return csvValues
         if self.activeFootprintDict is None:
             raise ValueError('Must either call setVideo(<videoId>), or provide parameter videoId in call to videoHeatValues().')
         csvValues = ['%s,%s\n' % (str(x),str(y)) for x,y in self.activeFootprintDict.items()]
                     
         return csvValues
-
+    
     # ------------------- Main Implementation Methods ------------------------    
     
     def initPlayheadAlignments(self, alignmentFile=None):
@@ -122,9 +129,18 @@ class VideoFootPrintIndex(collections.Mapping):
         # those offsets for each video:
         currVideoZeroTimeOffset = 0
         playing     = False
-        # Array in which each element is a counter
+
+        # Dict in which each element is a counter
         # for views of one minute:
         currVideoTimeDict = None
+        
+        # Dict in which each element is a counter,
+        # just as in currVideoTimeDict, but this
+        # one is to count separately for special
+        # learners. We make that dict an instance
+        # var b/c it was added later, and this makes
+        # it simpler to integrate into the existing code:
+        self.currVideoTimeDictLearners = None
         
         if self.viewEventsCSVFile is None:
             self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
@@ -133,7 +149,7 @@ class VideoFootPrintIndex(collections.Mapping):
             self.viewEventsCSVFile.close()
             self.viewEventsCSVFile = self.viewEventsCSVFile.name
             self.log('About to start video activity query...')
-            mysqlCmd = "SELECT time, event_type, video_id \
+            mysqlCmd = "SELECT anon_screen_name, event_type, video_id \
                           INTO OUTFILE '%s' \
                         FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
                           FROM EdxTrackEvent \
@@ -142,7 +158,7 @@ class VideoFootPrintIndex(collections.Mapping):
                             OR event_type = 'stop_video' \
                             OR event_type = 'seek_video' \
                            AND course_display_name = '%s' \
-                         ORDER BY video_id, time;" % (self.viewEventsCSVFile, courseDisplayName)
+                         ORDER BY video_id, anon_screen_name;" % (self.viewEventsCSVFile, courseDisplayName)
             
             self.db.query(mysqlCmd)
             self.log('Done video activity query...')
@@ -173,15 +189,17 @@ class VideoFootPrintIndex(collections.Mapping):
            
         with open(self.viewEventsCSVFile, 'r') as fd:
             for line in fd:
-                (time,  #@UnusedVariable 
+                (anon_screen_name,
                  event_type, 
                  video_id,
                  video_current_time,
                  video_old_time,
                  video_new_time) = line.split(',')
                  
-                event_type         = event_type.strip('"')
-                video_id           = video_id.strip('"')
+                event_type          	  = event_type.strip('"')
+                video_id            	  = video_id.strip('"')
+                anon_screen_name          = anon_screen_name.strip('"')
+                self.currAnonScreenName = anon_screen_name
                 try:
                     video_current_time = 0 if video_current_time.startswith('""') else int(round(float(video_current_time.strip('"\n'))))
                 except ValueError:
@@ -200,7 +218,7 @@ class VideoFootPrintIndex(collections.Mapping):
                         video_new_time = None 
                 
                 if video_id != currVideoId:
-                    # All done with one video of one learner
+                    # All done with one video watched by one learner
                     self.videoViews[currVideoId] = currVideoTimeDict
                     currVideo = video_id
                     currTime   = 0
@@ -214,6 +232,13 @@ class VideoFootPrintIndex(collections.Mapping):
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:
                         self.videoViews[currVideo] = currVideoTimeDict = {}
+                    # Same for special-learners dict:
+                    try:
+                        self.currVideoTimeDictLearners = self.videoViewsSpecialLearners[currVideo]
+                    except KeyError:
+                        # Never encountered this video. Put
+                        # empty minutes dict for this video into dict:
+                        self.videoViewsSpecialLearners[currVideo] = self.currVideoTimeDictLearners = {}
 
                 # Add time alignment offset to the playhead times;
                 # the type error occurs when one of the times is
@@ -345,13 +370,28 @@ class VideoFootPrintIndex(collections.Mapping):
         :rtype: {int --> int}
         '''
         theTime = startTime
+        currLearnerIsSpecial = self.currAnonScreenName in self.specialLearnersList
         while (theTime < stopTime):
+            # Add time to all appropriate slots in 
+            # the overall videoViews dict:
             try:
                 viewCount = videoTimeDict[theTime]
             except KeyError:
                 viewCount = 0
             videoTimeDict[theTime] = viewCount + 1
             theTime += VideoFootPrintIndex.timeResolution
+            
+            # If the current learner is one of the special
+            # learners for which we are to keep track separately:
+            if currLearnerIsSpecial:
+                try:
+                    # The '-1' is to compensate for the already above incremented
+                    # 'theTime' value:
+                    viewCount = self.currVideoTimeDictLearners[theTime-1]
+                except KeyError:
+                    viewCount = 0
+                self.currVideoTimeDictLearners[theTime] = viewCount + 1
+
         return videoTimeDict
 
     # --------------------------------- Persistence ------------------
@@ -378,14 +418,18 @@ class VideoFootPrintIndex(collections.Mapping):
     def __getitem__(self,key):
         try:
             (videoId,second) = key
-        except TypeError:
+        except (ValueError,TypeError):
             # Key is not a tuple; is activeFootprintDict
             # set to provide context? If so, interpret
             # the non-tuple key as a seconds-into-video specifier:
             if self.activeFootprintDict is not None:
                 return self.activeFootprintDict[key]
             else:
-                raise ValueError("Key into index must be a tuple (videoId, theSecond), or must first call setVideo(videoId); was '%s'" % str(key))
+                # Key is not a seconds number,
+                # assume the key is a video id.
+                # Return the view frequency dict of that id:
+                return self.videoViews[key]
+                #raise ValueError("Key into index must be a tuple (videoId, theSecond), or must first call setVideo(videoId); was '%s'" % str(key))
         return self.videoViews[videoId][second]
     
     def __setitem__(self,key, value):

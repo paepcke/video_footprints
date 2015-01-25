@@ -2,6 +2,10 @@
 Created on Jan 15, 2015
 
 @author: paepcke
+
+Todo:
+   - add partition
+
 '''
 import cPickle
 import collections
@@ -22,16 +26,25 @@ class VideoFootPrintIndex(collections.Mapping):
                  viewEventsCSVFile = None,
                  alignmentFile = None,
                  indexSavePath = None,
-                 specialLearnersList = None,
+                 specialLearnersList = [],
                  dbHost='localhost', 
                  mySQLUser=None, 
                  mySQLPwd=None 
                 ):
+        
+        if type(specialLearnersList) != list:
+            raise ValueError("Special learners list must be a list; was '%s'" % str(specialLearnersList))
+        
+        #********************
+        self.oldEventType = None
+        #********************
+        
         self.viewEventsCSVFile = viewEventsCSVFile
         self.alignmentFile     = alignmentFile
         self.indexSavePath = indexSavePath
         self.specialLearnersList   = specialLearnersList
         self.currAnonScreenName    = None
+        
         # We'll need access to the MySQL db
         # if we have to create the index or alignment
         # file, and no previously built index file
@@ -120,7 +133,9 @@ class VideoFootPrintIndex(collections.Mapping):
             self.logErr('A video footprint index is already loaded; to make a new index into the same file, ' +\
                         'remove the index file, and make a new VideoFootPrintIndex instance.\n' +\
                         "The existing index file used was '%s'" % self.indexSavePath)
-            return      
+            return
+        
+        event_type = None      
         currVideoId = None
         # Current playhead position of current video
         currTime    = 0
@@ -149,15 +164,29 @@ class VideoFootPrintIndex(collections.Mapping):
             self.viewEventsCSVFile.close()
             self.viewEventsCSVFile = self.viewEventsCSVFile.name
             self.log('About to start video activity query...')
-            mysqlCmd = "SELECT anon_screen_name, event_type, video_id \
+#            mysqlCmd = "SELECT anon_screen_name, event_type, video_id \
+#                          INTO OUTFILE '%s' \
+#                        FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
+#                          FROM EdxTrackEvent \
+#                         WHERE event_type = 'play_video' \
+#                            OR event_type = 'pause_video' \
+#                            OR event_type = 'stop_video' \
+#                            OR event_type = 'seek_video' \
+#                           AND course_display_name = '%s' \
+#                         ORDER BY video_id, anon_screen_name;" % (self.viewEventsCSVFile, courseDisplayName)
+
+            # The event_time below is not strictly needed,
+            # and is included for debugging: 
+            mysqlCmd = "SELECT anon_screen_name, \
+                               event_type, video_id, \
+                               video_current_time, \
+                               video_old_time, \
+                               video_new_time, \
+                               event_time \
                           INTO OUTFILE '%s' \
                         FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
                           FROM EdxTrackEvent \
-                         WHERE event_type = 'play_video' \
-                            OR event_type = 'pause_video' \
-                            OR event_type = 'stop_video' \
-                            OR event_type = 'seek_video' \
-                           AND course_display_name = '%s' \
+                         WHERE course_display_name = '%s' \
                          ORDER BY video_id, anon_screen_name;" % (self.viewEventsCSVFile, courseDisplayName)
             
             self.db.query(mysqlCmd)
@@ -188,15 +217,29 @@ class VideoFootPrintIndex(collections.Mapping):
         #    anon_screen_name, event_type, video_id
            
         with open(self.viewEventsCSVFile, 'r') as fd:
+            #****************
+            oldEventType = event_type
+            if event_type is None:
+                print('event_type is None')
+            else:
+                print('not None')
+            #****************
             for line in fd:
                 (anon_screen_name,
                  event_type, 
                  video_id,
                  video_current_time,
                  video_old_time,
-                 video_new_time) = line.split(',')
+                 video_new_time,
+                 event_time) = line.split(',')  #@UnusedVariable
                  
                 event_type          	  = event_type.strip('"')
+                # If event type isn't a video event, assume viewing
+                # has stopped:
+                if event_type not in ['play_video', 'pause_video', 'stop_video', 'seek_video']:
+                    playing = False
+                    continue
+                
                 video_id            	  = video_id.strip('"')
                 anon_screen_name          = anon_screen_name.strip('"')
                 self.currAnonScreenName = anon_screen_name
@@ -220,25 +263,25 @@ class VideoFootPrintIndex(collections.Mapping):
                 if video_id != currVideoId:
                     # All done with one video watched by one learner
                     self.videoViews[currVideoId] = currVideoTimeDict
-                    currVideo = video_id
+                    currVideoId = video_id
                     currTime   = 0
                     try:
                         currVideoZeroTimeOffset = -1 * alignmentDict[video_id]
                     except KeyError:
                         currVideoZeroTimeOffset = 0
                     try:
-                        currVideoTimeDict = self.videoViews[currVideo]
+                        currVideoTimeDict = self.videoViews[currVideoId]
                     except KeyError:
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:
-                        self.videoViews[currVideo] = currVideoTimeDict = {}
+                        self.videoViews[currVideoId] = currVideoTimeDict = {}
                     # Same for special-learners dict:
                     try:
-                        self.currVideoTimeDictLearners = self.videoViewsSpecialLearners[currVideo]
+                        self.currVideoTimeDictLearners = self.videoViewsSpecialLearners[currVideoId]
                     except KeyError:
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:
-                        self.videoViewsSpecialLearners[currVideo] = self.currVideoTimeDictLearners = {}
+                        self.videoViewsSpecialLearners[currVideoId] = self.currVideoTimeDictLearners = {}
 
                 # Add time alignment offset to the playhead times;
                 # the type error occurs when one of the times is
@@ -277,6 +320,7 @@ class VideoFootPrintIndex(collections.Mapping):
                 elif event_type == 'seek_video':
                     if not type(video_new_time) == int:
                         self.log("Seek event without, or with bad new time: '%s'" % line)
+                        playing = False
                         continue
                     currVideoTimeDict = self.handleSeekVideo(currTime, playing, video_old_time, currVideoTimeDict)
                     currTime = video_new_time
@@ -371,7 +415,7 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
         theTime = startTime
         currLearnerIsSpecial = self.currAnonScreenName in self.specialLearnersList
-        while (theTime < stopTime):
+        while (theTime <= stopTime):
             # Add time to all appropriate slots in 
             # the overall videoViews dict:
             try:
@@ -461,8 +505,8 @@ class VideoFootPrintIndex(collections.Mapping):
 if __name__ == '__main__':
     
     
-    footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoUse.csv', 
-                                             alignmentFile='/tmp/medstatsAlignment.csv',
-                                             indexSavePath='/tmp/medstatsIndex')
+    footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoFootprintUseChopped.csv', 
+                                             alignmentFile='/tmp/medstatsVideoFootprintAlignment.csv',
+                                             indexSavePath='/tmp/medstatsVideoFootprintIndex')
     footprintIndex.computeFootprints()
     pass

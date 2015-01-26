@@ -6,7 +6,39 @@ Created on Jan 15, 2015
 Todo:
    - add partition
 
+Must deal with pause time less than start-play time:
+"00262c4fde75f8c90f4498645fd8ff25401cf211","load_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","None","","","2014-07-05 22:01:08"
+"00262c4fde75f8c90f4498645fd8ff25401cf211","load_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","None","","","2014-07-05 22:01:09"
+"00262c4fde75f8c90f4498645fd8ff25401cf211","play_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","258.76334","","","2014-07-05 23:41:33"
+---> "00262c4fde75f8c90f4498645fd8ff25401cf211","pause_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","238.626614","","","2014-07-05 23:45:32"
+"00262c4fde75f8c90f4498645fd8ff25401cf211","play_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","238.626614","","","2014-07-05 23:45:52"
+"00262c4fde75f8c90f4498645fd8ff25401cf211","pause_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","504.257887","","","2014-07-05 23:50:18"
+"00262c4fde75f8c90f4498645fd8ff25401cf211","play_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","504.257887","","","2014-07-05 23:53:32"
+
+Must deal with play start time being None sometimes:
+"03ebe27e26838dac813e733ec09aee928fcec126","play_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","11.733333","","","2014-07-02 08:15:56"
+"03ebe27e26838dac813e733ec09aee928fcec126","load_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","None","","","2014-07-02 08:17:02"
+"03ebe27e26838dac813e733ec09aee928fcec126","load_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","None","","","2014-07-02 08:19:09"
+--->"03ebe27e26838dac813e733ec09aee928fcec126","play_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","None","","","2014-07-02 09:05:50"
+"03ebe27e26838dac813e733ec09aee928fcec126","seek_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","","19.333333","0","2014-07-02 09:05:50"
+"03ebe27e26838dac813e733ec09aee928fcec126","play_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","19.333333","","","2014-07-02 09:05:51"
+"03ebe27e26838dac813e733ec09aee928fcec126","pause_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","16.333333","","","2014-07-02 09:06:08"
+"03ebe27e26838dac813e733ec09aee928fcec126","play_video","i4x-Medicine-MedStats-video-04cdeb59117b42c19e6e55a47265ed38","16.333333","","","2014-07-02 09:06:29"
+
+Must deal with seek being temporarily unstable (time is None):
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","pause_video","i4x-Medicine-MedStats-video-af00b19971d7442886e1f79a64424f29","661.420416","","","2014-06-27 23:35:21"
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","load_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","None","","","2014-06-26 22:15:23"
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","load_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","None","","","2014-06-26 22:25:51"
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","play_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","0","","","2014-06-26 22:25:55"
+--> "0a0f64f455cb2e78300bf54336de42bce6a52a74","seek_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","","None","748","2014-06-26 22:25:55"
+--> "0a0f64f455cb2e78300bf54336de42bce6a52a74","seek_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","","0","705","2014-06-26 22:25:58"
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","seek_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","","0","705","2014-06-26 22:25:59"
+"0a0f64f455cb2e78300bf54336de42bce6a52a74","load_video","i4x-Medicine-MedStats-video-af2a429134c640c7810c9f3f9cf33f76","None","","","2014-06-26 22:26:26"
+
+
+
 '''
+import argparse
 import cPickle
 import collections
 import datetime
@@ -82,9 +114,31 @@ class VideoFootPrintIndex(collections.Mapping):
         
         if indexSavePath is not None and os.path.exists(indexSavePath):
             self.log("Using existing index file '%s'" % indexSavePath)
-            self.load(indexSavePath)
+            self.loadIndex(indexSavePath)
     
-    # ----------------------------- Output Methods Other than Dict Behaviors -------------------
+    # ----------------------------- Public Methods Other than Dict Behaviors -------------------
+                
+    # NOTE: after creating the instance of this class with 
+    #       an existing index file given, only the usual
+    #       dict methods should be needed:
+    
+    def loadIndex(self, indexSaveFile):
+        '''
+        Load an existing video footprint index into memory.
+        This method is called by the constructor, but can
+        be called later to load a different index.
+        
+        :param indexSaveFile: Path to the pickled dict
+        :type indexSaveFile: string
+        '''
+        with open(indexSaveFile, 'r') as inFd:
+            self.videoViews = cPickle.load(inFd)
+
+    def setVideo(self, videoId):
+        try:
+            self.activeFootprintDict = self.videoViews[videoId]
+        except KeyError:
+            raise ValueError("Video '%s' is not part of this footprint index." % videoId)
 
     def videos(self):
         '''
@@ -96,6 +150,16 @@ class VideoFootPrintIndex(collections.Mapping):
         return self.videoViews.keys()
     
     def videoHeatValues(self, videoId=None):
+        '''
+        Return an array of two-column CSV strings: "second,numViews"
+        for one video. The video is either specified in the parameter,
+        or a prior call to setVideo() specified a default.
+        
+        :param videoId: ID of video for which to create a CSV string array.
+            If None, must have set default via setVideo() ahead of time.
+        :type videoId: string
+        :raise ValueError if neither the parameter or the default is available.
+        '''
         if videoId is not None:
             csvValues = [str(x) + ',' + str(y) + '\n' for x,y in self[videoId].items()]
             return csvValues
@@ -105,7 +169,16 @@ class VideoFootPrintIndex(collections.Mapping):
                     
         return csvValues
     
-    # ------------------- Main Implementation Methods ------------------------    
+    def createIndex(self, courseDisplayName):
+        '''
+        Create a footprint index for an entire course.
+         
+        :param courseDisplayName: Platform name of the course as known to the databases (course_display_name)
+        :type courseDisplayName: string
+        '''
+        self.computeFootprints(courseDisplayName)
+    
+    # ------------------- Main Implementation Methods (Private) ------------------------    
     
     def initPlayheadAlignments(self, alignmentFile=None):
         if alignmentFile is None:
@@ -182,12 +255,12 @@ class VideoFootPrintIndex(collections.Mapping):
                                video_current_time, \
                                video_old_time, \
                                video_new_time, \
-                               event_time \
+                               time AS event_time \
                           INTO OUTFILE '%s' \
                         FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
                           FROM EdxTrackEvent \
                          WHERE course_display_name = '%s' \
-                         ORDER BY video_id, anon_screen_name, event_time;" % (self.viewEventsCSVFile, courseDisplayName)
+                         ORDER BY anon_screen_name, video_id, time;" % (self.viewEventsCSVFile, courseDisplayName)
             
             self.db.query(mysqlCmd)
             self.log('Done video activity query...')
@@ -217,13 +290,6 @@ class VideoFootPrintIndex(collections.Mapping):
         #    anon_screen_name, event_type, video_id
            
         with open(self.viewEventsCSVFile, 'r') as fd:
-            #****************
-            oldEventType = event_type
-            if event_type is None:
-                print('event_type is None')
-            else:
-                print('not None')
-            #****************
             for line in fd:
                 (anon_screen_name,
                  event_type, 
@@ -243,15 +309,13 @@ class VideoFootPrintIndex(collections.Mapping):
                 video_id            	  = video_id.strip('"')
                 anon_screen_name          = anon_screen_name.strip('"')
                 
-                # Take care of time-slider-equipped video players;
-                # they spew many play events in a short time:
-                if playing and \
-                    event_type == 'play_video' and \
-                    video_id   == currVideoId and \
-                    anon_screen_name == self.currAnonScreenName:
-                    currTime = video_new_time
-                    continue
-                    
+                # If we transitioned to a different learner,
+                # reset 'playing.' Without a pause/stop from 
+                # the old learner we ignore his final play:
+                if anon_screen_name != self.currAnonScreenName:
+                    playing = False
+                    self.currAnonScreenName = anon_screen_name
+
                 try:
                     video_current_time = 0 if video_current_time.startswith('""') else int(round(float(video_current_time.strip('"\n'))))
                 except ValueError:
@@ -268,6 +332,21 @@ class VideoFootPrintIndex(collections.Mapping):
                 except ValueError:
                     if video_new_time.startswith('"None'):
                         video_new_time = None 
+                
+                # Take care of time-slider-equipped video players;
+                # they spew many play events in a short time:
+                if playing and \
+                    event_type == 'play_video' and \
+                    video_id   == currVideoId and \
+                    anon_screen_name == self.currAnonScreenName:
+                    currTime = video_new_time
+                    continue
+                    
+                # Take care of None in current time when event
+                # is start_video (see file header):
+                if event_type == 'play_video' and video_current_time is None:
+                    playing = False
+                    continue
                 
                 if video_id != currVideoId:
                     # All done with one video watched by one learner
@@ -323,15 +402,26 @@ class VideoFootPrintIndex(collections.Mapping):
                     if not type(video_current_time) == int:
                         self.log("Pause event without, or with bad current time: '%s'" % line)
                         continue
-                    currVideoTimeDict = self.handlePauseVideo(currTime, video_current_time, currVideoTimeDict)
+                    # The conditional takes care of pause appearing to occur
+                    # earlier than the start-play time (see file header):
+                    pauseRes = self.handlePauseVideo(currTime, video_current_time, currVideoTimeDict)
+                    if pauseRes is None:
+                        playing = False
+                        continue
+                    currVideoTimeDict = pauseRes
                     currTime = video_current_time
                     continue
                 
                 elif event_type == 'seek_video':
-                    if not type(video_new_time) == int:
+                    if type(video_new_time) != int:
                         self.log("Seek event without, or with bad new time: '%s'" % line)
                         playing = False
                         continue
+                    if type(video_old_time) != int:
+                        self.log("Seek event without, or with bad old time: '%s'" % line)
+                        playing = False
+                        continue
+                        
                     currVideoTimeDict = self.handleSeekVideo(currTime, playing, video_old_time, currVideoTimeDict)
                     currTime = video_new_time
                     
@@ -359,13 +449,15 @@ class VideoFootPrintIndex(collections.Mapping):
         :type pauseTime: float
         :param videoTimeDict: time dict for the current video 
         :type videoTimeDict: {float --> int}
-        :return: the updated videoTimeDict
-        :rtype {float --> int}
-        :raise ValueError if new time is less than old time.
+        :return: the updated videoTimeDict. If an anomaly was encountered where the
+                 current time is larger than the pause time (i.e. the video seems
+                 to have run backward), we return None.
+        :rtype {float --> int  |  None}
         '''
         # Credit the minutes to the current video:
         if pauseTime < currTime:
-            raise ValueError('New time (%s) less than old time (%s) in pause' % (pauseTime, currTime))
+            # raise ValueError('New time (%s) less than old time (%s) in pause' % (pauseTime, currTime))
+            return None
         return self.creditTime(videoTimeDict, currTime, pauseTime)
         
     def handleSeekVideo(self, currTime, playing, srcTime, videoTimeDict):
@@ -456,18 +548,6 @@ class VideoFootPrintIndex(collections.Mapping):
         if self.indexSavePath is not None:
             with open(self.indexSavePath, 'w') as outFd:
                 cPickle.dump(videoViews, outFd)
-                
-    def load(self, indexSaveFile):
-        with open(indexSaveFile, 'r') as inFd:
-            self.videoViews = cPickle.load(inFd)
-
-    def setVideo(self, videoId):
-        try:
-            self.activeFootprintDict = self.videoViews[videoId]
-        except KeyError:
-            raise ValueError("Video '%s' is not part of this footprint index." % videoId)
-    
-
 
     # --------------------------------- Dict Method Implementations ------------------
     
@@ -516,9 +596,92 @@ class VideoFootPrintIndex(collections.Mapping):
 
 if __name__ == '__main__':
     
+        # -------------- Manage Input Parameters ---------------
     
-    footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoFootprintUseChopped.csv', 
-                                             alignmentFile='/tmp/medstatsVideoFootprintAlignment.csv',
-                                             indexSavePath='/tmp/medstatsVideoFootprintIndex')
-    footprintIndex.computeFootprints()
-    pass
+    usage = 'Usage: video_footprint_index \n'
+
+    parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-u', '--user',
+                        action='store',
+                        help='User ID that is to log into MySQL. Default: the user who is invoking this script.')
+    parser.add_argument('-p', '--pwd',
+                        action='store_true',
+                        help='Request to be asked for pwd for operating MySQL;\n' +\
+                             '    default: content of scriptInvokingUser$Home/.ssh/mysql if --user is unspecified,\n' +\
+                             '    or, if specified user is root, then the content of scriptInvokingUser$Home/.ssh/mysql_root.'
+                        )
+    parser.add_argument('-w', '--password',
+                        action='store',
+                        help='User explicitly provided password to log into MySQL.\n' +\
+                             '    default: content of scriptInvokingUser$Home/.ssh/mysql if --user is unspecified,\n' +\
+                             '    or, if specified user is root, then the content of scriptInvokingUser$Home/.ssh/mysql_root.'
+                        )
+    parser.add_argument('-v', '--videoOnly', 
+                        help='Only consider video events as engagement (default: consider all types).', 
+                        dest='videoOnly',
+                        default=False,
+                        action='store_true');
+    parser.add_argument('course',
+                        action='store',
+                        help='The course for which engagement is to be computed. Else: engagement for all courses.\n' +\
+                             "To have engagement computed for all courses, use All"
+                        ) 
+    
+    # Optionally: any number of years as ints:
+    parser.add_argument('years',
+                        nargs='*',
+                        type=int,
+                        help='A list of start years (YYYY) to limit the courses that are computed. Leave out if all start years are acceptable'
+                        ) 
+    
+    
+    args = parser.parse_args();
+    if args.user is None:
+        user = getpass.getuser()
+    else:
+        user = args.user
+        
+    if args.password and args.pwd:
+        raise ValueError('Use either -p, or -w, but not both.')
+        
+    if args.pwd:
+        pwd = getpass.getpass("Enter %s's MySQL password on localhost: " % user)
+    elif args.password:
+        pwd = args.password
+    else:
+        # Try to find pwd in specified user's $HOME/.ssh/mysql
+        currUserHomeDir = os.getenv('HOME')
+        if currUserHomeDir is None:
+            pwd = None
+        else:
+            # Don't really want the *current* user's homedir,
+            # but the one specified in the -u cli arg:
+            userHomeDir = os.path.join(os.path.dirname(currUserHomeDir), user)
+            try:
+                if user == 'root':
+                    with open(os.path.join(currUserHomeDir, '.ssh/mysql_root')) as fd:
+                        pwd = fd.readline().strip()
+                else:
+                    with open(os.path.join(userHomeDir, '.ssh/mysql')) as fd:
+                        pwd = fd.readline().strip()
+            except IOError:
+                # No .ssh subdir of user's home, or no mysql inside .ssh:
+                pwd = ''
+    
+    if args.course.lower() == 'all':
+        courseName = None
+    else:
+        courseName = args.course
+    
+    if len(args.years) == 0 or args.years[0] == 0:
+        years = None
+    else:
+        years = args.years
+
+# ==============    
+#     footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoFootprintUseAnonSortedChopped.csv', 
+#                                              alignmentFile='/tmp/medstatsVideoFootprintAlignment.csv',
+#                                              indexSavePath='/tmp/medstatsVideoFootprintIndex')
+
+#     footprintIndex.computeFootprints()
+#     pass

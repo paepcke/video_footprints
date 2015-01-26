@@ -12,14 +12,13 @@ import tempfile
 from video_footprint_index import VideoFootPrintIndex
 
 
-videoId = 'i4x-Medicine-HRP258-videoalpha-67b77215c10243f1a20d81350909084a'
-
+videoId = 'i4x-Medicine-MedStats-video-35f3582a6444423197e50006288a7885'
 # ------------------- Simplest Case -----------------------
 
-# Simplest case: the index file was built earlier
+# Simplest case: the index file was built earlier:
 # Create an index instance, passing location of 
 # the index file:
-footprintIndex = VideoFootPrintIndex(indexSavePath='/tmp/medstatsIndex')
+footprintIndex = VideoFootPrintIndex(indexSavePath='/tmp/medstatsVideoFootprintIndex')
 
 # Print list of all videos covered in the index:
 print(str(footprintIndex.videos()))
@@ -32,13 +31,13 @@ print(footprintIndex[(videoId, 10)])
 
 # To avoid having to specify the video id when
 # it will stay the same for a while:
-footprintIndex.setVideo('i4x-Medicine-HRP258-videoalpha-67b77215c10243f1a20d81350909084a')
+footprintIndex.setVideo('i4x-Medicine-MedStats-video-35f3582a6444423197e50006288a7885')
 
-# Get the now 'default' video's views at second 10
+# Get the new 'default' video's views at second 10
 # (same result as above)
 print(footprintIndex[10])
 
-#sys.exit()
+sys.exit()
 # ------------------- Get data for all learners AND (in aggregate) a list of special learners -----------------------
 
 # Simplest case: the index file was built earlier
@@ -88,7 +87,7 @@ print("Heatmap is in '%s'" % csvFd.name)
 
 sys.exit()
 
-# ---------------- When you have the use and alignment query result files, but not the index file  -------
+# ---------------- When you have the use, and alignment query result files, but not the index file  -------
 
 footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoUse.csv',
                                      alignmentFile='/tmp/Medicine_HRP258_Statistics_in_MedicinehZJsok_alignment.csv',

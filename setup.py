@@ -10,8 +10,7 @@ setup(
     # Dependencies on other packages:
     setup_requires   = ['nose>=1.1.2'],
     tests_require    = test_requirements,
-    install_requires = ['pymysql>=0.6.2',
-			'pymysql_utils>=0.49',
+    install_requires = ['pymysql_utils>=0.51',
 			'configparser>=3.3.0r2', 
 			'argparse>=1.2.1', 
 			] + test_requirements,

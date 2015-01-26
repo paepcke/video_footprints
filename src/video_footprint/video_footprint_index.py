@@ -187,7 +187,7 @@ class VideoFootPrintIndex(collections.Mapping):
                         FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
                           FROM EdxTrackEvent \
                          WHERE course_display_name = '%s' \
-                         ORDER BY video_id, anon_screen_name;" % (self.viewEventsCSVFile, courseDisplayName)
+                         ORDER BY video_id, anon_screen_name, event_time;" % (self.viewEventsCSVFile, courseDisplayName)
             
             self.db.query(mysqlCmd)
             self.log('Done video activity query...')
@@ -242,7 +242,16 @@ class VideoFootPrintIndex(collections.Mapping):
                 
                 video_id            	  = video_id.strip('"')
                 anon_screen_name          = anon_screen_name.strip('"')
-                self.currAnonScreenName = anon_screen_name
+                
+                # Take care of time-slider-equipped video players;
+                # they spew many play events in a short time:
+                if playing and \
+                    event_type == 'play_video' and \
+                    video_id   == currVideoId and \
+                    anon_screen_name == self.currAnonScreenName:
+                    currTime = video_new_time
+                    continue
+                    
                 try:
                     video_current_time = 0 if video_current_time.startswith('""') else int(round(float(video_current_time.strip('"\n'))))
                 except ValueError:
@@ -315,6 +324,7 @@ class VideoFootPrintIndex(collections.Mapping):
                         self.log("Pause event without, or with bad current time: '%s'" % line)
                         continue
                     currVideoTimeDict = self.handlePauseVideo(currTime, video_current_time, currVideoTimeDict)
+                    currTime = video_current_time
                     continue
                 
                 elif event_type == 'seek_video':
@@ -331,6 +341,8 @@ class VideoFootPrintIndex(collections.Mapping):
                         continue
                     self.handleStopVideo(currTime, playing, video_current_time, currVideoTimeDict)
                     playing = False
+                    currTime = video_new_time  # not really relevant, but to be sure...                    
+                    
             # All done, wrap up:
             self.finish(self.videoViews)
         

@@ -217,6 +217,7 @@ class VideoFootPrintIndex(collections.Mapping):
         event_type = None      
         currVideoId = None
         self.currVideoLength = None
+        self.courseDisplayName = courseDisplayName
         # Current playhead position of current video
         currTime    = 0
         # Some videos start at a negative number
@@ -227,7 +228,7 @@ class VideoFootPrintIndex(collections.Mapping):
 
         # Dict in which each element is a counter
         # for views of one minute:
-        currVideoTimeDict = None
+        currVideoTimeDict = {}
         
         # Dict in which each element is a counter,
         # just as in currVideoTimeDict, but this
@@ -238,11 +239,13 @@ class VideoFootPrintIndex(collections.Mapping):
         self.currVideoTimeDictLearners = None
         
         if self.viewEventsCSVFile is None:
-            self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
+            self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s_' % courseDisplayName.replace('/','_'), 
                                                                   suffix='_video_action.csv',
                                                                   delete=False)
             self.viewEventsCSVFile.close()
             self.viewEventsCSVFile = self.viewEventsCSVFile.name
+            os.remove(self.viewEventsCSVFile)
+
             self.log('About to start video activity query...')
 #            mysqlCmd = "SELECT anon_screen_name, event_type, video_id \
 #                          INTO OUTFILE '%s' \
@@ -269,25 +272,43 @@ class VideoFootPrintIndex(collections.Mapping):
                          WHERE course_display_name = '%s' \
                          ORDER BY anon_screen_name, video_id, time;" % (self.viewEventsCSVFile, courseDisplayName)
             
-            self.db.query(mysqlCmd)
+            try:
+                self.db.query(mysqlCmd).next()
+            except StopIteration:
+                pass
             self.log('Done video activity query...')
 
         # If no alignment file was provided, create it now:
         if self.alignmentFile is None:
-            self.alignmentFile = tempfile.NamedTemporaryFile(prefix='%s' % courseDisplayName.replace('/','_'), 
+            self.alignmentFile = tempfile.NamedTemporaryFile(prefix='%s_' % courseDisplayName.replace('/','_'), 
                                                                   suffix='_alignment.csv',
                                                                   delete=False)
             self.alignmentFile.close()
             self.alignmentFile = self.alignmentFile.name
+            os.remove(self.alignmentFile)
+
             self.log('About to find start time offset for all videos (calibration)...')
+#*******************
             mysqlCmd = "SELECT video_id, MIN(CAST(video_current_time AS SIGNED INTEGER)) \
-                          INTO OUTFILE '%s' \
-                          FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
-                          FROM EdxTrackEvent PARTITION (pAY2013_Summer) \
-                          WHERE course_display_name = '%s' \
-                            AND video_id != '' \
-                          GROUP BY video_id;" % (self.alignmentFile, courseDisplayName)
-            self.db.query(mysqlCmd)
+                           INTO OUTFILE '%s' \
+                           FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
+                           FROM EdxTrackEvent PARTITION (pAY2013_Summer) \
+                           WHERE course_display_name = '%s' \
+                             AND video_id != '' \
+                           GROUP BY video_id;" % (self.alignmentFile, courseDisplayName)
+
+#             mysqlCmd = "SELECT video_id, MIN(CAST(video_current_time AS SIGNED INTEGER)) \
+#                           INTO OUTFILE '%s' \
+#                           FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' \
+#                           FROM EdxTrackEvent PARTITION \
+#                           WHERE course_display_name = '%s' \
+#                             AND video_id != '' \
+#                           GROUP BY video_id;" % (self.alignmentFile, courseDisplayName)
+#*******************
+            try:
+                self.db.query(mysqlCmd).next()
+            except StopIteration:
+                pass
             self.log("Done creating playhead time calibration")
         
         # Create a dict: video_id --> start-time offset
@@ -318,6 +339,8 @@ class VideoFootPrintIndex(collections.Mapping):
                     continue
                 
                 video_id            	  = video_id.strip('"')
+                if video_id is None:
+                    continue
                 anon_screen_name          = anon_screen_name.strip('"')
                 
                 # If we transitioned to a different learner,
@@ -365,10 +388,16 @@ class VideoFootPrintIndex(collections.Mapping):
                 
                 if video_id != currVideoId:
                     # All done with one video watched by one learner
-                    self.videoViews[currVideoId] = currVideoTimeDict
+                    if currVideoId is not None:
+                        self.videoViews[currVideoId] = currVideoTimeDict
                     currVideoId = video_id
                     currTime   = 0
-                    self.currVideoLength = self.getVideoLen(video_id)
+                    tmpVideoLen = self.getVideoLen(video_id)
+                    if tmpVideoLen is None:
+                        self.logErr('Video %s in course %s seems to have no length; skipping event.' % (self.courseDisplayName, video_id))
+                        continue
+                    else:
+                        self.currVideoLength = tmpVideoLen
                     try:
                         currVideoZeroTimeOffset = -1 * alignmentDict[video_id]
                     except KeyError:
@@ -530,12 +559,11 @@ class VideoFootPrintIndex(collections.Mapping):
         self.log('Query video length for %s' % videoId)
         mysqlQuery = "SELECT MAX(CAST(video_current_time AS DECIMAL(7,3))) \
                      FROM EdxTrackEvent \
-                     WHERE course_display_name = 'Medicine/MedStats/Summer2014' \
+                     WHERE course_display_name = '%s' \
                      AND video_code = '%s' \
-                     AND video_current_time != 'None';" % videoId
+                     AND video_current_time != 'None';" % (self.courseDisplayName, videoId)
         vidLen = self.db.query(mysqlQuery).next()[0]
         self.log('Video length for %s is %s' % (videoId, str(vidLen)))
-        self.currVideoLength = int(vidLen)
         # For saving in method finish()
         self.videoLengths[videoId] = vidLen
         
@@ -660,7 +688,7 @@ if __name__ == '__main__':
     
         # -------------- Manage Input Parameters ---------------
     
-    usage = 'Usage: video_footprint_index \n'
+    #usage = 'Usage: video_footprint_index \n'
 
     parser = argparse.ArgumentParser(prog=os.path.basename(sys.argv[0]), formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-u', '--user',
@@ -678,22 +706,10 @@ if __name__ == '__main__':
                              '    default: content of scriptInvokingUser$Home/.ssh/mysql if --user is unspecified,\n' +\
                              '    or, if specified user is root, then the content of scriptInvokingUser$Home/.ssh/mysql_root.'
                         )
-    parser.add_argument('-v', '--videoOnly', 
-                        help='Only consider video events as engagement (default: consider all types).', 
-                        dest='videoOnly',
-                        default=False,
-                        action='store_true');
     parser.add_argument('course',
                         action='store',
                         help='The course for which engagement is to be computed. Else: engagement for all courses.\n' +\
                              "To have engagement computed for all courses, use All"
-                        ) 
-    
-    # Optionally: any number of years as ints:
-    parser.add_argument('years',
-                        nargs='*',
-                        type=int,
-                        help='A list of start years (YYYY) to limit the courses that are computed. Leave out if all start years are acceptable'
                         ) 
     
     
@@ -729,16 +745,22 @@ if __name__ == '__main__':
             except IOError:
                 # No .ssh subdir of user's home, or no mysql inside .ssh:
                 pwd = ''
+                
+    courseDisplayName = args.course
+    resultFilePrefix = '/tmp/heatMaps_%s' % courseDisplayName.replace('/','_')
+    footprintIndex = VideoFootPrintIndex(indexSavePath='%s_VideoFootprintIndex.pkl' % resultFilePrefix)
+    footprintIndex.createIndex(courseDisplayName)
+    heatMapResultFile = '%s.csv' % resultFilePrefix
+
+    with open(heatMapResultFile, 'w') as heatOutFd:
+        heatOutFd.write('course_display_name,videoId,second,numViews\n')
+        for videoId in footprintIndex.videoViews.keys():
+            heatValues = footprintIndex.videoHeatValues(videoId)
+            for heatSecondNumViewsCRStr in heatValues:
+                heatOutFd.write('%s,%s,%s' % (courseDisplayName,videoId,heatSecondNumViewsCRStr)) 
+            
+    print("Heatmaps are in %s" % heatMapResultFile)        
     
-    if args.course.lower() == 'all':
-        courseName = None
-    else:
-        courseName = args.course
-    
-    if len(args.years) == 0 or args.years[0] == 0:
-        years = None
-    else:
-        years = args.years
 
 # ==============    
 #     footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoFootprintUseAnonSortedChopped.csv', 

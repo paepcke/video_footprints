@@ -1,0 +1,7 @@
+# This .gitignore ensures that a .../Test/Results
+# directory will be available for unittests. But
+# the results won't be part of the repo:
+# Ignore everything in this directory
+*
+# Except this file
+!.gitignore

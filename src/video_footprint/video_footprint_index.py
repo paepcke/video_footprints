@@ -56,7 +56,9 @@ class VideoFootPrintIndex(collections.Mapping):
     
     def __init__(self,
                  viewEventsCSVFile = None,
+                 skipEventsCSVLines = 0,
                  alignmentFile = None,
+                 skipAlignmentCSVLines = 0,
                  indexSavePath = None,
                  specialLearnersList = [],
                  dbHost='localhost', 
@@ -67,23 +69,21 @@ class VideoFootPrintIndex(collections.Mapping):
         if type(specialLearnersList) != list:
             raise ValueError("Special learners list must be a list; was '%s'" % str(specialLearnersList))
         
-        #********************
-        self.oldEventType = None
-        #********************
-        
         self.viewEventsCSVFile = viewEventsCSVFile
         self.alignmentFile     = alignmentFile
         self.indexSavePath = indexSavePath
         self.specialLearnersList   = specialLearnersList
         self.currAnonScreenName    = None
+        self.skipEventsCSVLines    = skipEventsCSVLines
+        self.skipAlignmentCSVLines = skipAlignmentCSVLines
         
         # We'll need access to the MySQL db
         # if we have to create the index or alignment
         # file, and no previously built index file
         # exists. If an index file exists, it has all
         # needed info:
-        if (viewEventsCSVFile is None or alignmentFile is None) and \
-           (indexSavePath is None or not os.path.exists(indexSavePath) or os.path.getsize(indexSavePath) < 10):
+        #if (viewEventsCSVFile is None or alignmentFile is None) and \
+        if (indexSavePath is None or not os.path.exists(indexSavePath) or os.path.getsize(indexSavePath) < 10):
             self.dbHost = dbHost
             self.dbName = 'Edx'
             self.mySQLUser = mySQLUser
@@ -108,6 +108,7 @@ class VideoFootPrintIndex(collections.Mapping):
         # view counts of a particular minute
         # in the video:
         self.videoViews = {}
+        self.videoLengths = {}
         # Similar dict, but where only actions by selected
         # learners will be counted (the ones from the learnerList):
         self.videoViewsSpecialLearners = {}
@@ -132,7 +133,7 @@ class VideoFootPrintIndex(collections.Mapping):
         :type indexSaveFile: string
         '''
         with open(indexSaveFile, 'r') as inFd:
-            self.videoViews = cPickle.load(inFd)
+            (self.videoViews, self.videoLengths) = cPickle.load(inFd)
 
     def setVideo(self, videoId):
         try:
@@ -185,6 +186,11 @@ class VideoFootPrintIndex(collections.Mapping):
             raise NotImplementedError("Auto-computation of playhead alignment not implemented.")
         alignmentDict = {}
         with open(alignmentFile, 'r') as alignmentFd:
+            
+            # Skip column header(s) if any:
+            for colHeaderCount in range(self.skipAlignmentCSVLines): #@UnusedVariable
+                alignmentFd.readline()
+            
             for line in alignmentFd:
                 (videoId, startTime) = line.split(',')
                 alignmentDict[videoId.strip('"')] = int(startTime.strip('"\n'))
@@ -210,13 +216,14 @@ class VideoFootPrintIndex(collections.Mapping):
         
         event_type = None      
         currVideoId = None
+        self.currVideoLength = None
         # Current playhead position of current video
         currTime    = 0
         # Some videos start at a negative number
         # of seconds. The self.alignmentFile contains
         # those offsets for each video:
         currVideoZeroTimeOffset = 0
-        playing     = False
+        self.resetPlaying()
 
         # Dict in which each element is a counter
         # for views of one minute:
@@ -290,6 +297,10 @@ class VideoFootPrintIndex(collections.Mapping):
         #    anon_screen_name, event_type, video_id
            
         with open(self.viewEventsCSVFile, 'r') as fd:
+            # Skip column header(s) if any:
+            for colHeaderCount in range(self.skipEventsCSVLines): #@UnusedVariable
+                fd.readline()
+                
             for line in fd:
                 (anon_screen_name,
                  event_type, 
@@ -303,17 +314,21 @@ class VideoFootPrintIndex(collections.Mapping):
                 # If event type isn't a video event, assume viewing
                 # has stopped:
                 if event_type not in ['play_video', 'pause_video', 'stop_video', 'seek_video']:
-                    playing = False
+                    self.resetPlaying()
                     continue
                 
                 video_id            	  = video_id.strip('"')
                 anon_screen_name          = anon_screen_name.strip('"')
                 
                 # If we transitioned to a different learner,
-                # reset 'playing.' Without a pause/stop from 
+                # reset 'self.playing.' Without a pause/stop from 
                 # the old learner we ignore his final play:
                 if anon_screen_name != self.currAnonScreenName:
-                    playing = False
+                    # If previous learner was playing the video, we
+                    # assume the video ran to the end. Remember: unclear
+                    # whether an automatic stop_video event truly occurs at the 
+                    # end of each video:
+                    self.resetPlaying(currVideoTimeDict)
                     self.currAnonScreenName = anon_screen_name
 
                 try:
@@ -335,7 +350,7 @@ class VideoFootPrintIndex(collections.Mapping):
                 
                 # Take care of time-slider-equipped video players;
                 # they spew many play events in a short time:
-                if playing and \
+                if self.playing and \
                     event_type == 'play_video' and \
                     video_id   == currVideoId and \
                     anon_screen_name == self.currAnonScreenName:
@@ -343,9 +358,9 @@ class VideoFootPrintIndex(collections.Mapping):
                     continue
                     
                 # Take care of None in current time when event
-                # is start_video (see file header):
+                # is play_video (see file header):
                 if event_type == 'play_video' and video_current_time is None:
-                    playing = False
+                    self.resetPlaying()
                     continue
                 
                 if video_id != currVideoId:
@@ -353,6 +368,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     self.videoViews[currVideoId] = currVideoTimeDict
                     currVideoId = video_id
                     currTime   = 0
+                    self.getVideoLen(video_id)
                     try:
                         currVideoZeroTimeOffset = -1 * alignmentDict[video_id]
                     except KeyError:
@@ -395,7 +411,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     if not type(video_current_time) == int:
                         self.log("Play event without, or with bad current time: '%s'" % line)
                         continue
-                    playing = True
+                    self.setPlaying(video_current_time)
                     currTime = video_current_time
                     
                 elif event_type == 'pause_video':
@@ -406,7 +422,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     # earlier than the start-play time (see file header):
                     pauseRes = self.handlePauseVideo(currTime, video_current_time, currVideoTimeDict)
                     if pauseRes is None:
-                        playing = False
+                        self.resetPlaying()
                         continue
                     currVideoTimeDict = pauseRes
                     currTime = video_current_time
@@ -415,22 +431,22 @@ class VideoFootPrintIndex(collections.Mapping):
                 elif event_type == 'seek_video':
                     if type(video_new_time) != int:
                         self.log("Seek event without, or with bad new time: '%s'" % line)
-                        playing = False
+                        self.resetPlaying()
                         continue
                     if type(video_old_time) != int:
                         self.log("Seek event without, or with bad old time: '%s'" % line)
-                        playing = False
+                        self.resetPlaying()
                         continue
                         
-                    currVideoTimeDict = self.handleSeekVideo(currTime, playing, video_old_time, currVideoTimeDict)
+                    currVideoTimeDict = self.handleSeekVideo(currTime, self.playing, video_old_time, currVideoTimeDict)
                     currTime = video_new_time
                     
                 elif event_type == 'stop_video':
                     if not type(video_current_time) == int:
                         self.log("Stop event without, or with bad current time: '%s'" % line)
                         continue
-                    self.handleStopVideo(currTime, playing, video_current_time, currVideoTimeDict)
-                    playing = False
+                    self.handleStopVideo(currTime, self.playing, video_current_time, currVideoTimeDict)
+                    self.resetPlaying()
                     currTime = video_new_time  # not really relevant, but to be sure...                    
                     
             # All done, wrap up:
@@ -501,7 +517,51 @@ class VideoFootPrintIndex(collections.Mapping):
         if playing:
             videoTimeDict = self.creditTime(videoTimeDict, currTime, stopTime)
         return videoTimeDict
-    # ------------------------------------------ Utilities ---------------------------  
+    # ------------------------------------------ Utilities ---------------------------
+    
+    def getVideoLen(self, videoId):
+        
+        try:
+            return self.videoLengths[videoId]
+        except KeyError:
+            pass
+        self.log('Query video length for %s' % videoId)
+        mysqlQuery = "SELECT MAX(CAST(video_current_time AS DECIMAL(7,3))) \
+                     FROM EdxTrackEvent \
+                     WHERE course_display_name = 'Medicine/MedStats/Summer2014' \
+                     AND video_code = '%s' \
+                     AND video_current_time != 'None';" % videoId
+        vidLen = self.db.query(mysqlQuery).next()[0]
+        self.log('Video length for %s is %s' % (videoId, str(vidLen)))
+        self.currVideoLength = vidLen
+        # For saving in method finish()
+        self.videoLengths[videoId] = vidLen
+        
+    
+    def resetPlaying(self, currVideoTimeDict=None):
+        '''
+        Remember that playback just stopped.
+        '''
+    
+        if currVideoTimeDict is not None:
+            self.creditEstimatedPlaytime(currVideoTimeDict)    
+        self.playing = False
+        
+    def setPlaying(self, startTimeVideoContext):
+        '''
+        Flag to remember that video just started playing.
+        
+        :param startTimeVideoContext: time in fractions of second into the video where start occurred
+        :type startTimeVideoContext: float
+        '''
+        self.playStartTimeVideo = startTimeVideoContext
+        self.playing = True
+        
+    def creditEstimatedPlaytime(self, currVideoTimeDict):
+        if not self.playing or self.currVideoLength is None or self.playStartTimeVideo is None:
+            return
+        self.creditTime(currVideoTimeDict, self.playStartTimeVideo, self.currVideoLength)
+        
     def creditTime(self, videoTimeDict, startTime, stopTime):
         '''
         Given a dict of floatTime --> viewCounters, a start time,
@@ -547,7 +607,7 @@ class VideoFootPrintIndex(collections.Mapping):
     def finish(self, videoViews):
         if self.indexSavePath is not None:
             with open(self.indexSavePath, 'w') as outFd:
-                cPickle.dump(videoViews, outFd)
+                cPickle.dump((videoViews, self.videoLengths), outFd)
 
     # --------------------------------- Dict Method Implementations ------------------
     

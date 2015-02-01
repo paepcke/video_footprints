@@ -368,7 +368,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     self.videoViews[currVideoId] = currVideoTimeDict
                     currVideoId = video_id
                     currTime   = 0
-                    self.getVideoLen(video_id)
+                    self.currVideoLength = self.getVideoLen(video_id)
                     try:
                         currVideoZeroTimeOffset = -1 * alignmentDict[video_id]
                     except KeyError:
@@ -450,6 +450,8 @@ class VideoFootPrintIndex(collections.Mapping):
                     currTime = video_new_time  # not really relevant, but to be sure...                    
                     
             # All done, wrap up:
+            # Account for final event of final learner, if needed:
+            self.resetPlaying(currVideoTimeDict)
             self.finish(self.videoViews)
         
                     
@@ -533,7 +535,7 @@ class VideoFootPrintIndex(collections.Mapping):
                      AND video_current_time != 'None';" % videoId
         vidLen = self.db.query(mysqlQuery).next()[0]
         self.log('Video length for %s is %s' % (videoId, str(vidLen)))
-        self.currVideoLength = vidLen
+        self.currVideoLength = int(vidLen)
         # For saving in method finish()
         self.videoLengths[videoId] = vidLen
         

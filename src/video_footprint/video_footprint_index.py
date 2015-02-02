@@ -341,18 +341,24 @@ class VideoFootPrintIndex(collections.Mapping):
                     video_current_time = 0 if video_current_time.startswith('""') else int(round(float(video_current_time.strip('"\n'))))
                 except ValueError:
                     if video_current_time.startswith('"None'):
-                        video_current_time = None 
+                        video_current_time = None
+                except OverflowError:
+                    video_current_time = None
                 try:
                     video_old_time     = 0 if video_old_time.startswith('""') else int(round(float(video_old_time.strip('"\n'))))
                 except ValueError:
                     if video_old_time.startswith('"None'):
                         video_old_time = None 
+                except OverflowError:
+                    video_old_time = None
                         
                 try:
                     video_new_time     = 0 if video_new_time.startswith('""') else int(round(float(video_new_time.strip('"\n'))))
                 except ValueError:
                     if video_new_time.startswith('"None'):
                         video_new_time = None 
+                except OverflowError:
+                    video_new_time = None
                 
                 # Take care of time-slider-equipped video players;
                 # they spew many play events in a short time:

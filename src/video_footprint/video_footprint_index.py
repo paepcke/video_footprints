@@ -150,6 +150,17 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
         return self.videoViews.keys()
     
+    def videoHeatAll(self, outfileName):
+        
+        with open(outfileName, 'w') as outFd:
+            outFd.write('videoId,second,numViews\n')
+            for videoId in self.videoViews.keys():
+                # Get ["1,10\n",'2,30\n",...]:
+                secondNumViewsStrArr = self.videoHeatValues(videoId)
+                for secondNumViewsStr in secondNumViewsStrArr:
+                    (second,numViews) = secondNumViewsStr.strip().split(',')
+                    outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
+                 
     def videoHeatValues(self, videoId=None):
         '''
         Return an array of two-column CSV strings: "second,numViews"

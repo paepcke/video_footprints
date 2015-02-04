@@ -7,18 +7,19 @@ import unittest
 from video_footprint_index import VideoFootPrintIndex
 
 
-TEST_ALL = True
-#TEST_ALL = False
+#TEST_ALL = True
+TEST_ALL = False
 
 class VideoFootprintTest(unittest.TestCase):
 
     def setUp(self):
+        self.vidDict = {}
         with open('Test/vid1Len.csv', 'r') as fd:
             # Swallow the col header:
             (col1Header, col2Header) = fd.readline().strip('\n').split(',') #@UnusedVariable
-            (vidName, vidLen) = fd.readline().strip('\n').split(',')
-            
-        self.vidDict = {vidName : int(vidLen)}    
+            for line in fd:
+                (vidName, vidLen) = line.strip('\n').split(',')
+                self.vidDict[vidName] = int(vidLen)    
 
     def tearDown(self):
         pass
@@ -172,6 +173,29 @@ class VideoFootprintTest(unittest.TestCase):
                 (second,numViews) = secNumViewsCR.split(',')
                 numViews = numViews.strip('\n')
                 fd.write('%s,%s\n' % (str(second),str(numViews)))
+
+
+# ----------------------  Multiple Videos ----------
+
+
+    #**********@unittest.skipIf(not TEST_ALL, "Temporarily disabled")    
+    def testMultipleVideos(self):
+        footprintIndex = VideoFootPrintIndex(indexSavePath='Test/Results/vidSynthMultipleVideos.pkl',
+                                             viewEventsCSVFile='Test/videoTestMultipleVideos.csv',
+                                             alignmentFile=    'Test/vid1AlignmentFile.csv',
+                                             skipEventsCSVLines=1,
+                                             skipAlignmentCSVLines=1
+                                             )
+        footprintIndex.videoLengths = self.vidDict
+        footprintIndex.videoViews = {}
+        footprintIndex.computeFootprints('Medicine/HRP258/Statistics_in_Medicine')
+        footprintIndex.videoHeatAll('Test/Results/vidSynthHeatMultipleVideos.csv')
+        #print(str(heatMap))
+        with open('Test/vidSynthHeatMultipleVideosTruth.csv', 'r') as truthFd:
+            trueHeatmaps = truthFd.readlines()
+        with open('Test/Results/vidSynthHeatMultipleVideos.csv', 'r') as testFd:
+            testHeatmap = testFd.readlines()
+        self.assertItemsEqual(trueHeatmaps, testHeatmap)
 
 
 if __name__ == "__main__":

@@ -152,6 +152,13 @@ class VideoFootPrintIndex(collections.Mapping):
         return self.videoViews.keys()
     
     def videoHeatAll(self, outfileName, specialLearners=False):
+        '''
+        
+        :param outfileName:
+        :type outfileName:
+        :param specialLearners:
+        :type specialLearners:
+        '''
         
         with open(outfileName, 'w') as outFd:
             outFd.write('videoId,second,numViews\n')

@@ -110,9 +110,6 @@ class VideoFootPrintIndex(collections.Mapping):
         # in the video:
         self.videoViews = {}
         self.videoLengths = {}
-        # Similar dict, but where only actions by selected
-        # learners will be counted (the ones from the learnerList):
-        self.videoViewsSpecialLearners = {}
         
         if indexSavePath is not None and os.path.exists(indexSavePath):
             self.log("Using existing index file '%s'" % indexSavePath)
@@ -151,31 +148,20 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
         return self.videoViews.keys()
     
-    def videoHeatAll(self, outfileName, specialLearners=False):
+    def videoHeatAll(self, outfileName):
         '''
-        
         :param outfileName:
         :type outfileName:
-        :param specialLearners:
-        :type specialLearners:
         '''
         
         with open(outfileName, 'w') as outFd:
             outFd.write('videoId,second,numViews\n')
-            if specialLearners:
-                for videoId in self.videoViewsSpecialLearners.keys():
-                    # Get ["1,10\n",'2,30\n",...]:
-                    secondNumViewsStrArr = [str(x) + ',' + str(y) + '\n' for x,y in self.videoViewsSpecialLearners[videoId].items()]
-                    for secondNumViewsStr in secondNumViewsStrArr:
-                        (second,numViews) = secondNumViewsStr.strip().split(',')
-                        outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
-            else:
-                for videoId in self.videoViews.keys():
-                    # Get ["1,10\n",'2,30\n",...]:
-                    secondNumViewsStrArr = self.videoHeatValues(videoId)
-                    for secondNumViewsStr in secondNumViewsStrArr:
-                        (second,numViews) = secondNumViewsStr.strip().split(',')
-                        outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
+            for videoId in self.videoViews.keys():
+                # Get ["1,10\n",'2,30\n",...]:
+                secondNumViewsStrArr = self.videoHeatValues(videoId)
+                for secondNumViewsStr in secondNumViewsStrArr:
+                    (second,numViews) = secondNumViewsStr.strip().split(',')
+                    outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
                  
     def videoHeatValues(self, videoId=None):
         '''
@@ -258,14 +244,6 @@ class VideoFootPrintIndex(collections.Mapping):
         # Dict in which each element is a counter
         # for views of one minute:
         currVideoTimeDict = {}
-        
-        # Dict in which each element is a counter,
-        # just as in currVideoTimeDict, but this
-        # one is to count separately for special
-        # learners. We make that dict an instance
-        # var b/c it was added later, and this makes
-        # it simpler to integrate into the existing code:
-        self.currVideoTimeDictLearners = None
         
         if self.viewEventsCSVFile is None:
             self.viewEventsCSVFile  = tempfile.NamedTemporaryFile(prefix='%s_' % courseDisplayName.replace('/','_'), 
@@ -366,6 +344,11 @@ class VideoFootPrintIndex(collections.Mapping):
                     # whether an automatic stop_video event truly occurs at the 
                     # end of each video:
                     self.resetPlaying(currVideoTimeDict)
+                    
+                    # If we are only collecting data for particular learners,
+                    # ignore events that are not from one of those learners:
+                    if len(self.specialLearnersList) > 0 and anon_screen_name not in self.specialLearnersList:  
+                        continue
                     self.currAnonScreenName = anon_screen_name
 
                 try:
@@ -410,9 +393,6 @@ class VideoFootPrintIndex(collections.Mapping):
                     # All done with one video watched by one learner
                     if currVideoId is not None:
                         self.videoViews[currVideoId] = copy.copy(currVideoTimeDict)
-                    # Same with special learners dict:
-                    if currVideoId is not None and self.currAnonScreenName in self.specialLearnersList:
-                        self.videoViewsSpecialLearners[currVideoId] = copy.copy(self.currVideoTimeDictLearners)
 
                     currVideoId = video_id
                     currTime   = 0
@@ -434,19 +414,6 @@ class VideoFootPrintIndex(collections.Mapping):
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:
                         self.videoViews[currVideoId] = currVideoTimeDict = {}
-                    # Same for special-learners dict:
-                    try:
-                        self.currVideoTimeDictLearners = copy.copy(self.videoViewsSpecialLearners[currVideoId])
-                    except KeyError:
-                        # Never encountered this video. Put
-                        # empty minutes dict for this video into dict:
-                        self.videoViewsSpecialLearners[currVideoId] = self.currVideoTimeDictLearners = {}
-                    #*****************
-#                     self.excerptVideoViews('After video change acted on.')
-#                     equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-#                     print("After video change: videoViews[currVideoId] == videoViews[video_id]?: %s" % str(equality))
-                    #*****************
-                        
                         
 
                 # Add time alignment offset to the playhead times;
@@ -640,7 +607,6 @@ class VideoFootPrintIndex(collections.Mapping):
         :rtype: {int --> int}
         '''
         theTime = startTime
-        currLearnerIsSpecial = self.currAnonScreenName in self.specialLearnersList
         while (theTime <= stopTime):
             # Add time to all appropriate slots in 
             # the overall videoViews dict:
@@ -651,17 +617,6 @@ class VideoFootPrintIndex(collections.Mapping):
             videoTimeDict[theTime] = viewCount + 1
             theTime += VideoFootPrintIndex.timeResolution
             
-            # If the current learner is one of the special
-            # learners for which we are to keep track separately:
-            if currLearnerIsSpecial:
-                try:
-                    # The '-1' is to compensate for the already above incremented
-                    # 'theTime' value:
-                    viewCount = self.currVideoTimeDictLearners[theTime-1]
-                except KeyError:
-                    viewCount = 0
-                self.currVideoTimeDictLearners[theTime] = viewCount + 1
-
         return videoTimeDict
 
     # --------------------------------- Persistence ------------------

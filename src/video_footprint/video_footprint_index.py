@@ -389,19 +389,17 @@ class VideoFootPrintIndex(collections.Mapping):
                     continue
                 
                 if video_id != currVideoId:
-                    #*****************
-#                     self.excerptVideoViews('When video change detected.')
-#                     try:
-#                         equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-#                         print("When video change detected: videoViews[currVideoId] == videoViews[video_id]? %s" % str(equality))
-#                     except KeyError:
-#                         print("When video change detected: new video: %s" % video_id)
-                    #*****************
                     # All done with one video watched by one learner
                     if currVideoId is not None:
                         self.videoViews[currVideoId] = copy.copy(currVideoTimeDict)
+                    # Same with special learners dict:
+                    if currVideoId is not None and self.currAnonScreenName in self.specialLearnersList:
+                        self.videoViewsSpecialLearners[currVideoId] = copy.copy(self.currVideoTimeDictLearners)
+
                     currVideoId = video_id
                     currTime   = 0
+                    
+                    
                     tmpVideoLen = self.getVideoLen(video_id, partition)
                     if tmpVideoLen is None:
                         self.logErr('Video %s in course %s seems to have no length; skipping event.' % (self.courseDisplayName, video_id))
@@ -420,7 +418,7 @@ class VideoFootPrintIndex(collections.Mapping):
                         self.videoViews[currVideoId] = currVideoTimeDict = {}
                     # Same for special-learners dict:
                     try:
-                        self.currVideoTimeDictLearners = self.videoViewsSpecialLearners[currVideoId]
+                        self.currVideoTimeDictLearners = copy.copy(self.videoViewsSpecialLearners[currVideoId])
                     except KeyError:
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:

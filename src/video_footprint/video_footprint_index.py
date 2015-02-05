@@ -264,7 +264,8 @@ class VideoFootPrintIndex(collections.Mapping):
             # The event_time below is not strictly needed,
             # and is included for debugging: 
             mysqlCmd = "SELECT anon_screen_name, \
-                               event_type, video_id, \
+                               event_type, \
+                               video_id, \
                                video_current_time, \
                                video_old_time, \
                                video_new_time, \
@@ -387,6 +388,9 @@ class VideoFootPrintIndex(collections.Mapping):
                     continue
                 
                 if video_id != currVideoId:
+                    #*****************
+                    self.excerptVideoViews('When video change detected.')
+                    #*****************
                     # All done with one video watched by one learner
                     if currVideoId is not None:
                         self.videoViews[currVideoId] = currVideoTimeDict
@@ -415,6 +419,11 @@ class VideoFootPrintIndex(collections.Mapping):
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:
                         self.videoViewsSpecialLearners[currVideoId] = self.currVideoTimeDictLearners = {}
+                    #*****************
+                    self.excerptVideoViews('After video change acted on.')
+                    #*****************
+                        
+                        
 
                 # Add time alignment offset to the playhead times;
                 # the type error occurs when one of the times is
@@ -682,6 +691,15 @@ class VideoFootPrintIndex(collections.Mapping):
     def logErr(self, msg):
         sys.stderr.write('     %s: %s\n' %  (str(datetime.datetime.now()), msg))
         sys.stderr.flush()
+        
+    #*********************
+    def excerptVideoViews(self, comment):
+        print("Excerpting from videoViews during collection: %" % comment)
+        for videoId in self.videoViews:
+            print("%s (1): %s" % (videoId, self.videoViews[videoId][0]))
+            print("%s (2): %s" % (videoId, self.videoViews[videoId][1]))
+            print("%s (3): %s" % (videoId, self.videoViews[videoId][2]))
+        #*********************    
 
 if __name__ == '__main__':
     

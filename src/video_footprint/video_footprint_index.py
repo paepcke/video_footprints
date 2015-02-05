@@ -277,7 +277,7 @@ class VideoFootPrintIndex(collections.Mapping):
                          WHERE course_display_name = '%s' \
                          ORDER BY anon_screen_name, video_id, time;" % (self.viewEventsCSVFile, 'PARTITION ('+partition+')' if partition is not None else '', courseDisplayName)
             #*************                         
-            print('Query: %s' % mysqlCmd)
+            #print('Query: %s' % mysqlCmd)
             #*************
             
             try:
@@ -392,9 +392,6 @@ class VideoFootPrintIndex(collections.Mapping):
                     continue
                 
                 if video_id != currVideoId:
-                    #*************
-                    print('Old video id: %s. New ID: %s' % (currVideoId,video_id))
-                    #*************
                     # All done with one video watched by one learner
                     if currVideoId is not None:
                         self.videoViews[currVideoId] = copy.copy(currVideoTimeDict)

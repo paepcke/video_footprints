@@ -781,13 +781,13 @@ if __name__ == '__main__':
     footprintIndex = VideoFootPrintIndex(indexSavePath='%s_VideoFootprintIndex.pkl' % resultFilePrefix)
     footprintIndex.createIndex(courseDisplayName, partition=args.partition)
     heatMapResultFile = '%s.csv' % resultFilePrefix
+    footprintIndex.videoHeatAll(heatMapResultFile)
     #*****************
-    #*******footprintIndex.videoHeatAll(heatMapResultFile)
-    print("Excerpting:")
-    for videoId in footprintIndex.videoViews:
-        print("%s (1): %s" % (videoId, footprintIndex.videoViews[videoId][0]))
-        print("%s (2): %s" % (videoId, footprintIndex.videoViews[videoId][1]))
-        print("%s (3): %s" % (videoId, footprintIndex.videoViews[videoId][2]))
+#     print("Excerpting:")
+#     for videoId in footprintIndex.videoViews:
+#         print("%s (1): %s" % (videoId, footprintIndex.videoViews[videoId][0]))
+#         print("%s (2): %s" % (videoId, footprintIndex.videoViews[videoId][1]))
+#         print("%s (3): %s" % (videoId, footprintIndex.videoViews[videoId][2]))
     #*****************
             
     print("Heatmaps are in %s" % heatMapResultFile)        

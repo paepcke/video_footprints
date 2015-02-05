@@ -392,7 +392,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     self.excerptVideoViews('When video change detected.')
                     try:
                         equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-                        print("When video change detected: videoViews[currVideoId] == videoViews[video_id]?" % equality)
+                        print("When video change detected: videoViews[currVideoId] == videoViews[video_id]? %s" % str(equality))
                     except KeyError:
                         print("When video change detected: new video: %s" % video_id)
                     #*****************

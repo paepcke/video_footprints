@@ -151,16 +151,24 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
         return self.videoViews.keys()
     
-    def videoHeatAll(self, outfileName):
+    def videoHeatAll(self, outfileName, specialLearners=False):
         
         with open(outfileName, 'w') as outFd:
             outFd.write('videoId,second,numViews\n')
-            for videoId in self.videoViews.keys():
-                # Get ["1,10\n",'2,30\n",...]:
-                secondNumViewsStrArr = self.videoHeatValues(videoId)
-                for secondNumViewsStr in secondNumViewsStrArr:
-                    (second,numViews) = secondNumViewsStr.strip().split(',')
-                    outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
+            if specialLearners:
+                for videoId in self.specialLearners.keys():
+                    # Get ["1,10\n",'2,30\n",...]:
+                    secondNumViewsStrArr = [str(x) + ',' + str(y) + '\n' for x,y in self.videoViewsSpecialLearners[videoId].items()]
+                    for secondNumViewsStr in secondNumViewsStrArr:
+                        (second,numViews) = secondNumViewsStr.strip().split(',')
+                        outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
+            else:
+                for videoId in self.videoViews.keys():
+                    # Get ["1,10\n",'2,30\n",...]:
+                    secondNumViewsStrArr = self.videoHeatValues(videoId)
+                    for secondNumViewsStr in secondNumViewsStrArr:
+                        (second,numViews) = secondNumViewsStr.strip().split(',')
+                        outFd.write('%s,%s,%s\n' % (videoId,second,numViews))
                  
     def videoHeatValues(self, videoId=None):
         '''

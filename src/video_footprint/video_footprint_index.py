@@ -427,7 +427,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     #*****************
                     self.excerptVideoViews('After video change acted on.')
                     equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-                    print("After video change: videoViews[currVideoId] == videoViews[video_id]?" % equality)
+                    print("After video change: videoViews[currVideoId] == videoViews[video_id]?: %s" % str(equality))
                     #*****************
                         
                         

@@ -701,12 +701,12 @@ class VideoFootPrintIndex(collections.Mapping):
         sys.stderr.flush()
         
     #*********************
-    def excerptVideoViews(self, comment):
-        print("Excerpting from videoViews during collection: %s" % comment)
-        for videoId in self.videoViews:
-            print("%s (1): %s" % (videoId, self.videoViews[videoId][0]))
-            print("%s (2): %s" % (videoId, self.videoViews[videoId][1]))
-            print("%s (3): %s" % (videoId, self.videoViews[videoId][2]))
+#     def excerptVideoViews(self, comment):
+#         print("Excerpting from videoViews during collection: %s" % comment)
+#         for videoId in self.videoViews:
+#             print("%s (1): %s" % (videoId, self.videoViews[videoId][0]))
+#             print("%s (2): %s" % (videoId, self.videoViews[videoId][1]))
+#             print("%s (3): %s" % (videoId, self.videoViews[videoId][2]))
     #*********************    
 
 if __name__ == '__main__':

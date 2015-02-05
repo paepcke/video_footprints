@@ -156,7 +156,7 @@ class VideoFootPrintIndex(collections.Mapping):
         with open(outfileName, 'w') as outFd:
             outFd.write('videoId,second,numViews\n')
             if specialLearners:
-                for videoId in self.specialLearners.keys():
+                for videoId in self.videoViewsSpecialLearners.keys():
                     # Get ["1,10\n",'2,30\n",...]:
                     secondNumViewsStrArr = [str(x) + ',' + str(y) + '\n' for x,y in self.videoViewsSpecialLearners[videoId].items()]
                     for secondNumViewsStr in secondNumViewsStrArr:

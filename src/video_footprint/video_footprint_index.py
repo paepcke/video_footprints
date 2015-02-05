@@ -41,6 +41,7 @@ Must deal with seek being temporarily unstable (time is None):
 import argparse
 import cPickle
 import collections
+import copy
 import datetime
 import getpass
 import os
@@ -398,7 +399,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     #*****************
                     # All done with one video watched by one learner
                     if currVideoId is not None:
-                        self.videoViews[currVideoId] = currVideoTimeDict
+                        self.videoViews[currVideoId] = copy.copy(currVideoTimeDict)
                     currVideoId = video_id
                     currTime   = 0
                     tmpVideoLen = self.getVideoLen(video_id, partition)
@@ -412,7 +413,7 @@ class VideoFootPrintIndex(collections.Mapping):
                     except KeyError:
                         currVideoZeroTimeOffset = 0
                     try:
-                        currVideoTimeDict = self.videoViews[currVideoId]
+                        currVideoTimeDict = copy.copy(self.videoViews[currVideoId])
                     except KeyError:
                         # Never encountered this video. Put
                         # empty minutes dict for this video into dict:

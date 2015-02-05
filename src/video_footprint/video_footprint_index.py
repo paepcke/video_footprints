@@ -390,12 +390,12 @@ class VideoFootPrintIndex(collections.Mapping):
                 
                 if video_id != currVideoId:
                     #*****************
-                    self.excerptVideoViews('When video change detected.')
-                    try:
-                        equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-                        print("When video change detected: videoViews[currVideoId] == videoViews[video_id]? %s" % str(equality))
-                    except KeyError:
-                        print("When video change detected: new video: %s" % video_id)
+#                     self.excerptVideoViews('When video change detected.')
+#                     try:
+#                         equality = self.videoViews[currVideoId] == self.videoViews[video_id]
+#                         print("When video change detected: videoViews[currVideoId] == videoViews[video_id]? %s" % str(equality))
+#                     except KeyError:
+#                         print("When video change detected: new video: %s" % video_id)
                     #*****************
                     # All done with one video watched by one learner
                     if currVideoId is not None:
@@ -426,9 +426,9 @@ class VideoFootPrintIndex(collections.Mapping):
                         # empty minutes dict for this video into dict:
                         self.videoViewsSpecialLearners[currVideoId] = self.currVideoTimeDictLearners = {}
                     #*****************
-                    self.excerptVideoViews('After video change acted on.')
-                    equality = self.videoViews[currVideoId] == self.videoViews[video_id]
-                    print("After video change: videoViews[currVideoId] == videoViews[video_id]?: %s" % str(equality))
+#                     self.excerptVideoViews('After video change acted on.')
+#                     equality = self.videoViews[currVideoId] == self.videoViews[video_id]
+#                     print("After video change: videoViews[currVideoId] == videoViews[video_id]?: %s" % str(equality))
                     #*****************
                         
                         
@@ -707,7 +707,7 @@ class VideoFootPrintIndex(collections.Mapping):
             print("%s (1): %s" % (videoId, self.videoViews[videoId][0]))
             print("%s (2): %s" % (videoId, self.videoViews[videoId][1]))
             print("%s (3): %s" % (videoId, self.videoViews[videoId][2]))
-        #*********************    
+    #*********************    
 
 if __name__ == '__main__':
     

@@ -276,6 +276,9 @@ class VideoFootPrintIndex(collections.Mapping):
                           FROM EdxTrackEvent %s \
                          WHERE course_display_name = '%s' \
                          ORDER BY anon_screen_name, video_id, time;" % (self.viewEventsCSVFile, 'PARTITION ('+partition+')' if partition is not None else '', courseDisplayName)
+            #*************                         
+            print('Query: %s' % mysqlCmd)
+            #*************
             
             try:
                 self.db.query(mysqlCmd).next()

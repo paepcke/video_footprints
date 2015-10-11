@@ -47,6 +47,7 @@ import getpass
 import os
 import sys
 import tempfile
+import csv
 
 from pymysql_utils.pymysql_utils import MySQLDB
 
@@ -315,8 +316,8 @@ class VideoFootPrintIndex(collections.Mapping):
             # Skip column header(s) if any:
             for colHeaderCount in range(self.skipEventsCSVLines): #@UnusedVariable
                 fd.readline()
-                
-            for line in fd:
+            csv_reader = csv.reader(fd)
+            for line in csv_reader:
                 try:
                     (anon_screen_name,
                      event_type, 

@@ -325,7 +325,7 @@ class VideoFootPrintIndex(collections.Mapping):
                      video_current_time,
                      video_old_time,
                      video_new_time,
-                     event_time) = line.split(',')  #@UnusedVariable
+                     event_time) = line  #@UnusedVariable
                 except ValueError as e:
                     self.logErr("While reading line after '%s': %s" % (line, `e`))
                     continue

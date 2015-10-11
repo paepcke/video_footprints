@@ -221,6 +221,8 @@ class VideoFootPrintIndex(collections.Mapping):
 
         :param courseDisplayName: course whose videos are to be profiled
         :type courseDisplayName: string
+        :param partition: if known, the table partition where the course resides. Example: 'pAY2013_Summer'
+        :type partition: string 
         '''
 
         if len(self.videoViews) != 0:
@@ -315,14 +317,17 @@ class VideoFootPrintIndex(collections.Mapping):
                 fd.readline()
                 
             for line in fd:
-                (anon_screen_name,
-                 event_type, 
-                 video_id,
-                 video_current_time,
-                 video_old_time,
-                 video_new_time,
-                 event_time) = line.split(',')  #@UnusedVariable
-                 
+                try:
+                    (anon_screen_name,
+                     event_type, 
+                     video_id,
+                     video_current_time,
+                     video_old_time,
+                     video_new_time,
+                     event_time) = line.split(',')  #@UnusedVariable
+                except ValueError as e:
+                    self.logErr("While reading line after '%s': %s" % (line, `e`))
+                    continue
                 event_type          	  = event_type.strip('"')
                 # If event type isn't a video event, assume viewing
                 # has stopped:

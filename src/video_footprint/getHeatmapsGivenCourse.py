@@ -13,7 +13,8 @@ from video_footprint_index import VideoFootPrintIndex
 
 #courseDisplayName = 'Medicine/HRP261/Winter2014'
 #courseDisplayName = 'Medicine/HRP262/Spring2014'
-courseDisplayName = 'Engineering/Compilers/Fall2014'
+#courseDisplayName = 'Engineering/Compilers/Fall2014'
+courseDisplayName = 'EarthSciences/ResGeo202/Spring2015'
 specialLearnersList = [
 			# 'd9e40e111506cf299441abc35a56fb4bdac0daad', # HRP261
 			# '8811cf97c75bedcdd46357d89a2a27be5ac15547',

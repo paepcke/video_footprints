@@ -3,8 +3,39 @@ Created on Jan 15, 2015
 
 @author: paepcke
 
-Todo:
-   - add partition
+Class that builds heatmaps for all videos in a course. 
+Used it stand-alone from the command line, or import 
+into another application. In this case, the application
+instantiates class VideoFootPrintIndex. The resulting
+instance behaves like a dictionary that holds results.
+The dict mapps a video_id to an array. Each array element 
+contains the view counts of a particular second
+in the respective video.
+
+Takes a course triplet, and writes the heatmaps as a csv
+file to /tmp. Prints name of that file in the end.
+
+Normally, he program needs access to the MySQL database with the
+Edx tracking events. This access is accomplished in one
+of three ways:
+   - If used from an application, pass keywords mySQLUser,
+     and mySQLPwd.
+   - If used from the command line, you can pass 
+     the -u and -p options, similar to the mysql command:
+     -u <MySQL user name>; the -p will prompt for a pwd.
+   - If $HOME/.ssh/mysql exists and contains a pwd, that
+     pwd is used for MySQL. The user who invokes this script
+     will be used as the MySQL user.
+
+It is possible to cause the script to save the dictionary
+it creates in a file, and to reuse it later. Accomplish this
+by using CLI option -i, passing a file name, including directory.
+If instantiating the class, pass the file name in the keyword 
+parameter indexSavePath.
+
+When such a saved index file is available, the script does
+not need access to MySQL, and processing is very fast.
+
 
 Must deal with pause time less than start-play time:
 "00262c4fde75f8c90f4498645fd8ff25401cf211","load_video","i4x-Medicine-MedStats-video-2db4f6a3ecac4a94816f3aef385eedb5","None","","","2014-07-05 22:01:08"
@@ -106,8 +137,8 @@ class VideoFootPrintIndex(collections.Mapping):
 
         self.activeFootprintDict = None
         # Dict mapping video_id to array.
-        # each array element contains the 
-        # view counts of a particular minute
+        # Each array element contains the 
+        # view counts of a particular second
         # in the video:
         self.videoViews = {}
         self.videoLengths = {}
@@ -227,9 +258,8 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
 
         if len(self.videoViews) != 0:
-            self.logErr('A video footprint index is already loaded; to make a new index into the same file, ' +\
-                        'remove the index file, and make a new VideoFootPrintIndex instance.\n' +\
-                        "The existing index file used was '%s'" % self.indexSavePath)
+            self.log('The existing video footprint index file  (%s) has been loaded; to instead make a new ' % self.indexSavePath +\
+                     'index with the same file, remove the index file, and make a new VideoFootPrintIndex instance.\n')
             return
         
         event_type = None      
@@ -708,6 +738,11 @@ if __name__ == '__main__':
                              '    default: content of scriptInvokingUser$Home/.ssh/mysql if --user is unspecified,\n' +\
                              '    or, if specified user is root, then the content of scriptInvokingUser$Home/.ssh/mysql_root.'
                         )
+    parser.add_argument('-i', '--indexfile',
+                        action='store',
+                        default=None,
+                        help="File where index is to be stored for later use, or existing index file to use."
+                        )
     parser.add_argument('-r', '--partition',
                         action='store',
                         default=None,
@@ -753,9 +788,11 @@ if __name__ == '__main__':
                 # No .ssh subdir of user's home, or no mysql inside .ssh:
                 pwd = ''
                 
+    indexFile = args.indexfile
     courseDisplayName = args.course
     resultFilePrefix = '/tmp/heatMaps_%s' % courseDisplayName.replace('/','_')
-    footprintIndex = VideoFootPrintIndex(indexSavePath='%s_VideoFootprintIndex.pkl' % resultFilePrefix)
+    indexFileDest    = '%s_VideoFootprintIndex.pkl' % resultFilePrefix
+    footprintIndex = VideoFootPrintIndex(indexSavePath=indexFileDest)
     footprintIndex.createIndex(courseDisplayName, partition=args.partition)
     heatMapResultFile = '%s.csv' % resultFilePrefix
     footprintIndex.videoHeatAll(heatMapResultFile)
@@ -767,8 +804,11 @@ if __name__ == '__main__':
 #         print("%s (3): %s" % (videoId, footprintIndex.videoViews[videoId][2]))
     #*****************
             
-    print("Heatmaps are in %s" % heatMapResultFile)        
-    
+    print("Heatmaps are in %s" % heatMapResultFile)
+    # If user entered a file name where to save the 
+    # resulting index file, print where it went:
+    if indexFile is not None:
+        print("Saved index file is in %s" % indexFileDest)
 
 # ==============    
 #     footprintIndex = VideoFootPrintIndex(viewEventsCSVFile='/tmp/medstatsVideoFootprintUseAnonSortedChopped.csv', 

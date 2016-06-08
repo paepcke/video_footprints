@@ -16,7 +16,7 @@ Here Sijun's summary of his changes:
   (videoId, AnonScreenName). The rest follows your logic and I save
   the current currVideoTimeDict and create a new empty
   currVideoTimeDict whenever videoId or AnonScreenName is
-  different. Some other minor changes was made but I can’t exactly
+  different. Some other minor changes was made but I can't exactly
   recall.
 
   I also verified the correctness of my script this afternoon by

@@ -212,7 +212,7 @@ class VideoFootPrintIndex(collections.Mapping):
         '''
         
         with open(outfileName, 'w') as outFd:
-            outFd.write('videoId,second,numViews\n')
+            outFd.write('videoId,anon_screen_name,second,numViews\n')
             for videoId in self.videoViews.keys():
                 # Get ["1,10\n",'2,30\n",...]:
                 secondNumViewsStrArr = self.videoHeatValues(videoId)
